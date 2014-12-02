@@ -5,16 +5,6 @@ use Illuminate\Support\Facades\Cache;
 
 class Model extends IlluminateModel
 {
-    public static function create(array $attributes)
-    {
-        $model = parent::create($attributes);
-        $modelClass = get_class($model);
-        $primaryKey = $model->primaryKey;
-        $identifyCacheKey = static::identifyCacheKey($modelClass, $model->$primaryKey);
-        Cache::put($identifyCacheKey, $model, 60);
-
-        return $model;
-    }
 
     public static function find($id, $columns = array('*'))
     {
@@ -43,9 +33,6 @@ class Model extends IlluminateModel
                     }
                     $result = $result->merge($missItems);
                 }
-                echo '<pre>';
-                print_r($result);
-                print_r($missIdentifyCacheKeys); die;
             } else {
                 $identifyCacheKey = static::identifyCacheKey($modelClass, $id);
 
