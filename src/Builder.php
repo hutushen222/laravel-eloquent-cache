@@ -34,11 +34,6 @@ class Builder extends IlluminateBuilder
         return $model;
     }
 
-    public function get($columns = array('*'))
-    {
-        return parent::get($columns);
-    }
-
     /**
      * Find a model by its primary key.
      *
