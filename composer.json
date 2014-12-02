@@ -1,0 +1,17 @@
+{
+    "name": "milkythinking/laravel-cacheable-eloquent",
+    "authors": [
+        {
+            "name": "胡言言（Jack Hu）",
+            "email": "hutushen222@gmail.com"
+        }
+    ],
+    "require": {
+        "laravel/framework": "~4.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "MilkyThinking\\CacheableEloquent\\": "src/"
+        }
+    }
+}

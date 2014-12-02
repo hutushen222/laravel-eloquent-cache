@@ -1,2 +1,4 @@
-laravel-eloquent-cache
-======================
+Laravel CacheableEloquent
+=========================
+
+-EOF-
