@@ -19,17 +19,6 @@ class Cache implements StoreInterface
         return static::$instance;
     }
 
-    /**
-     * Retrieve an item from the cache by key.
-     *
-     * @param  string  $key
-     * @return mixed
-     */
-    public function get($key)
-    {
-        return IlluminateCache::get($key);
-    }
-
     public function getMulti($keys)
     {
         $items = array();
