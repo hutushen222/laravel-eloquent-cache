@@ -35,36 +35,6 @@ class Builder extends IlluminateBuilder
     }
 
     /**
-     * Find a model by its primary key.
-     *
-     * @param  mixed  $id
-     * @param  array  $columns
-     * @return \Illuminate\Database\Eloquent\Model|static|null
-     */
-    public function find($id, $columns = array('*'))
-    {
-        if (is_array($id)) {
-            return $this->findMany($id, $columns);
-        }
-
-        if ($columns === array('*')) {
-            $identifyCacheKey = Model::getIdentifyCacheKey($this->getModelClass(), $id);
-            $model            = Cache::getInstance()->get($identifyCacheKey);
-
-            if (!$model) {
-                $model = parent::find($id, $columns);
-                if ($model) {
-                    Cache::getInstance()->put($identifyCacheKey, $model, 60);
-                }
-            }
-        } else {
-            $model = parent::find($id, $columns);
-        }
-
-        return $model;
-    }
-
-    /**
      * Find multi-models by its primary keys.
      *
      * @param  array  $ids
@@ -78,7 +48,7 @@ class Builder extends IlluminateBuilder
             return $this->model->newCollection();
         }
 
-        if ($columns === array('*')) {
+        if ($columns === array('*') && (is_null($this->query->columns) || $this->query->columns === array('*'))) {
             $models = $this->model->newCollection();
 
             $identifyCacheKeys = Model::getIdentifyCacheKeys($this->getModelClass(), $ids);
