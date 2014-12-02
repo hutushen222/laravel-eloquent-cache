@@ -7,8 +7,10 @@ class Builder extends IlluminateBuilder
 
     public function first($columns = array('*'))
     {
+        $modelClass = $this->getModelClass();
         if (
-            $columns === array('*')
+            $modelClass::isCacheable()
+            && $columns === array('*')
             && (is_null($this->query->columns) || $this->query->columns === array('*'))
             && count($this->query->wheres) === 1
             && $this->query->wheres[0]['type'] === 'Basic'
@@ -18,13 +20,12 @@ class Builder extends IlluminateBuilder
             && is_null($this->query->havings)
             && is_null($this->query->unions)
         ) {
-            $identifyCacheKey = Model::getIdentifyCacheKey($this->getModelClass(), $this->query->wheres[0]['value']);
+            $identifyCacheKey = $modelClass::getIdentifyCacheKey($modelClass, $this->query->wheres[0]['value']);
             $model = Cache::getInstance()->get($identifyCacheKey);
-
             if (!$model) {
                 $model = parent::first($columns);
                 if ($model) {
-                    Cache::getInstance()->put($identifyCacheKey, $model, 60);
+                    Cache::getInstance()->put($identifyCacheKey, $model, $modelClass::getCacheable('minutes'));
                 }
             }
         } else {
@@ -48,10 +49,15 @@ class Builder extends IlluminateBuilder
             return $this->model->newCollection();
         }
 
-        if ($columns === array('*') && (is_null($this->query->columns) || $this->query->columns === array('*'))) {
+        $modelClass = $this->getModelClass();
+        if (
+            $modelClass::isCacheable()
+            && $columns === array('*')
+            && (is_null($this->query->columns) || $this->query->columns === array('*'))
+        ) {
             $models = $this->model->newCollection();
 
-            $identifyCacheKeys = Model::getIdentifyCacheKeys($this->getModelClass(), $ids);
+            $identifyCacheKeys = $modelClass::getIdentifyCacheKeys($modelClass, $ids);
             $missIdentifyCacheKeys = array();
 
             $hitModels = Cache::getInstance()->getMulti($identifyCacheKeys);
@@ -67,7 +73,7 @@ class Builder extends IlluminateBuilder
                 $missModels = parent::findMany(array_keys($missIdentifyCacheKeys));
                 foreach ($missModels as $missModel) {
                     $identifyCacheKey = $missIdentifyCacheKeys[$missModel->getKey()];
-                    Cache::getInstance()->put($identifyCacheKey, $missModel, 60);
+                    Cache::getInstance()->put($identifyCacheKey, $missModel, $modelClass::getCacheable('minutes'));
                 }
                 $models = $models->merge($missModels);
             }

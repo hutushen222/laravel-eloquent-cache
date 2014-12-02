@@ -4,6 +4,14 @@ use Illuminate\Database\Eloquent\Model as IlluminateModel;
 
 class Model extends IlluminateModel
 {
+    protected static $cacheable = [];
+
+    protected static $cacheableDefault = [
+        'prefix' => 'cacheable',
+        'enable' => true,
+        'version' => 1,
+        'minutes' => 60,
+    ];
 
     /**
      * Create a new Eloquent query builder for the model.
@@ -20,9 +28,10 @@ class Model extends IlluminateModel
     public function save(array $options = array())
     {
         $result = parent::save($options);
-
-        $identifyCacheKey = static::getIdentifyCacheKey(get_class($this), $this->getKey());
-        Cache::getInstance()->put($identifyCacheKey, $this, 60);
+        if ($result && static::isCacheable()) {
+            $identifyCacheKey = static::getIdentifyCacheKey(get_class($this), $this->getKey());
+            Cache::getInstance()->put($identifyCacheKey, $this, static::getCacheable('minutes'));
+        }
 
         return $result;
     }
@@ -30,8 +39,7 @@ class Model extends IlluminateModel
     public function delete()
     {
         $result = parent::delete();
-
-        if ($result) {
+        if ($result && static::isCacheable()) {
             $identifyCacheKey = static::getIdentifyCacheKey(get_class($this), $this->getKey());
             Cache::getInstance()->forget($identifyCacheKey);
         }
@@ -39,18 +47,34 @@ class Model extends IlluminateModel
         return $result;
     }
 
-    public static function getIdentifyCacheKeys($modelClass, $ids, $prefix = 'Cacheable')
+    public static function getIdentifyCacheKeys($modelClass, $ids)
     {
         $keys = array();
         foreach ($ids as $id) {
-            $keys[$id] = static::getIdentifyCacheKey($modelClass, $id, $prefix);
+            $keys[$id] = static::getIdentifyCacheKey($modelClass, $id);
         }
 
         return $keys;
     }
 
-    public static function getIdentifyCacheKey($modelClass, $id, $prefix = 'Cacheable')
+    public static function getIdentifyCacheKey($modelClass, $id)
     {
-        return implode(':', array($prefix, $modelClass, $id));
+        $cacheable = self::getCacheable();
+        return implode(':', array($cacheable['prefix'], $modelClass, $cacheable['version'], $id));
+    }
+
+    public static function getCacheable($name = null)
+    {
+        $cacheable = array_merge(self::$cacheableDefault, static::$cacheable);
+        if ($name) {
+            return isset($cacheable[$name]) ? $cacheable[$name] : null;
+        }
+
+        return $cacheable;
+    }
+
+    public static function isCacheable()
+    {
+        return self::getCacheable('enable');
     }
 }
