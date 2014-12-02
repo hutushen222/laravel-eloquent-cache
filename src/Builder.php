@@ -1,0 +1,119 @@
+<?php namespace MilkyThinking\CacheableEloquent;
+
+use Illuminate\Database\Eloquent\Builder as IlluminateBuilder;
+
+class Builder extends IlluminateBuilder
+{
+
+    public function first($columns = array('*'))
+    {
+        if (
+            $columns === array('*')
+            && (is_null($this->query->columns) || $this->query->columns === array('*'))
+            && count($this->query->wheres) === 1
+            && $this->query->wheres[0]['type'] === 'Basic'
+            && ($this->query->wheres[0]['column'] === $this->model->getKeyName() || $this->query->wheres[0]['column'] === $this->model->getQualifiedKeyName())
+            && $this->query->wheres[0]['operator'] === '='
+            && is_null($this->query->groups)
+            && is_null($this->query->havings)
+            && is_null($this->query->unions)
+        ) {
+            $identifyCacheKey = Model::getIdentifyCacheKey($this->getModelClass(), $this->query->wheres[0]['value']);
+            $model = Cache::getInstance()->get($identifyCacheKey);
+
+            if (!$model) {
+                $model = parent::first($columns);
+                if ($model) {
+                    Cache::getInstance()->put($identifyCacheKey, $model, 60);
+                }
+            }
+        } else {
+            $model = parent::first($columns);
+        }
+
+        return $model;
+    }
+
+    public function get($columns = array('*'))
+    {
+        return parent::get($columns);
+    }
+
+    /**
+     * Find a model by its primary key.
+     *
+     * @param  mixed  $id
+     * @param  array  $columns
+     * @return \Illuminate\Database\Eloquent\Model|static|null
+     */
+    public function find($id, $columns = array('*'))
+    {
+        if (is_array($id)) {
+            return $this->findMany($id, $columns);
+        }
+
+        if ($columns === array('*')) {
+            $identifyCacheKey = Model::getIdentifyCacheKey($this->getModelClass(), $id);
+            $model            = Cache::getInstance()->get($identifyCacheKey);
+
+            if (!$model) {
+                $model = parent::find($id, $columns);
+                if ($model) {
+                    Cache::getInstance()->put($identifyCacheKey, $model, 60);
+                }
+            }
+        } else {
+            $model = parent::find($id, $columns);
+        }
+
+        return $model;
+    }
+
+    /**
+     * Find multi-models by its primary keys.
+     *
+     * @param  array  $ids
+     * @param  array  $columns
+     *
+     * @return \Illuminate\Database\Eloquent\Model|Collection|static
+     */
+    public function findMany($ids, $columns = array('*'))
+    {
+        if (empty($ids)) {
+            return $this->model->newCollection();
+        }
+
+        if ($columns === array('*')) {
+            $models = $this->model->newCollection();
+
+            $identifyCacheKeys = Model::getIdentifyCacheKeys($this->getModelClass(), $ids);
+            $missIdentifyCacheKeys = array();
+
+            $hitModels = Cache::getInstance()->getMulti($identifyCacheKeys);
+            foreach ($identifyCacheKeys as $id => $identifyCacheKey) {
+                if (isset($hitModels[$identifyCacheKey])) {
+                    $models->add($hitModels[$identifyCacheKey]);
+                } else {
+                    $missIdentifyCacheKeys[$id] = $identifyCacheKey;
+                }
+            }
+
+            if ($missIdentifyCacheKeys) {
+                $missModels = parent::findMany(array_keys($missIdentifyCacheKeys));
+                foreach ($missModels as $missModel) {
+                    $identifyCacheKey = $missIdentifyCacheKeys[$missModel->getKey()];
+                    Cache::getInstance()->put($identifyCacheKey, $missModel, 60);
+                }
+                $models = $models->merge($missModels);
+            }
+        } else {
+            $models = parent::findMany($ids, $columns);
+        }
+        return $models;
+    }
+
+    protected function getModelClass()
+    {
+        return get_class($this->model);
+    }
+}
